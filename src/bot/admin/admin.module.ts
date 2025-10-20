@@ -10,6 +10,10 @@ import {
   Category,
   CategorySchema,
 } from 'src/common/database/schemas/category.schema';
+import {
+  Product,
+  ProductSchema,
+} from 'src/common/database/schemas/products.schema';
 
 @Module({
   imports: [
@@ -17,6 +21,7 @@ import {
       { name: User.name, schema: UserSchema },
       { name: Referal.name, schema: ReferalSchema },
       { name: Category.name, schema: CategorySchema },
+      { name: Product.name, schema: ProductSchema },
     ]),
   ],
   providers: [AdminActions],

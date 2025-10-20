@@ -3,10 +3,10 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true, collection: 'products' })
 export class Product extends Document {
-  @Prop({ required: true })
+  @Prop({ required: false })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ required: false })
   price: number;
 
   @Prop({ required: false })
@@ -18,14 +18,17 @@ export class Product extends Document {
   @Prop({ required: true, default: true })
   isAvailable: boolean;
 
-  @Prop({ required: true })
+  @Prop({ required: false })
   quantity: number;
 
-  @Prop({ required: true })
+  @Prop({ required: false })
   unit: string;
 
   @Prop({ required: true, type: Types.ObjectId, ref: 'categories' })
   categoryId: string;
+
+  @Prop({ required: false })
+  lastState: string;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

@@ -9,11 +9,16 @@ import { config } from 'src/config';
 import { Referal } from 'src/common/database/schemas/referal.schema';
 import {
   askcategoryName,
+  askProductName,
   backFromReferalList,
+  categoryInline,
   categoryMenu,
+  categoryName,
   chooseDepartment,
   createdDate,
+  editCategoryMenu,
   existsCategories,
+  noCategories,
   noReferals,
   referalCreated,
   referalMenu,
@@ -22,6 +27,7 @@ import { LastMessageGuard } from 'src/common/guards/lastMessage.guard';
 import { LanguageGuard } from 'src/common/guards/language.guard';
 import { Category } from 'src/common/database/schemas/category.schema';
 import { Markup } from 'telegraf';
+import { Product } from 'src/common/database/schemas/products.schema';
 
 @UseGuards(AdminGuard)
 @UseGuards(LanguageGuard)
@@ -31,6 +37,7 @@ export class AdminActions {
   constructor(
     @InjectModel(Referal.name) private referalModel: Model<Referal>,
     @InjectModel(Category.name) private categoryModel: Model<Category>,
+    @InjectModel(Product.name) private productModel: Model<Product>,
   ) {}
   @Action('addReferal')
   async addReferal(@Ctx() ctx: MyContext) {
@@ -90,11 +97,31 @@ export class AdminActions {
   }
 
   @Action('listOfCategories')
-  async listOfCategories(@Ctx() ctx: MyContext, page: number = 0) {
+  async listOfCategories(
+    @Ctx() ctx: MyContext,
+    page: number = 0,
+    itsFromDeleteCategory: boolean = false,
+  ) {
     const PAGE_SIZE = 10;
     const BUTTONS_PER_ROW = 5;
 
     const categories = await this.categoryModel.find();
+
+    if (categories.length == 0) {
+      await ctx.answerCbQuery(noCategories[ctx.session.lang] as string, {
+        show_alert: true,
+      });
+      if (itsFromDeleteCategory) {
+        await ctx.editMessageText(
+          chooseDepartment[ctx.session.lang] as string,
+          {
+            reply_markup: categoryMenu[ctx.session.lang],
+          },
+        );
+      }
+      return;
+    }
+
     const totalPages = Math.ceil(categories.length / PAGE_SIZE);
 
     const startIndex = page * PAGE_SIZE;
@@ -150,6 +177,7 @@ export class AdminActions {
     const page = (
       ctx.update as { callback_query: { data: string } }
     ).callback_query.data.split('=')[1];
+    ctx.session.admin.categoryPage = +page;
     await this.listOfCategories(ctx, +page);
   }
 
@@ -166,6 +194,68 @@ export class AdminActions {
       ctx.update as { callback_query: { data: string } }
     ).callback_query.data.split('=')[1];
     const category = await this.categoryModel.findById(id);
-    console.log(category);
+    if (!category) return;
+    ctx.session.admin.selectedCategoryId = category._id as string;
+    await ctx.editMessageText(
+      `${category.name} ${categoryName[ctx.session.lang]}`,
+      {
+        reply_markup: categoryInline[ctx.session.lang],
+      },
+    );
+  }
+
+  @Action('editCategory')
+  async editCategory(@Ctx() ctx: MyContext) {
+    await ctx.editMessageText(chooseDepartment[ctx.session.lang] as string, {
+      reply_markup: editCategoryMenu[ctx.session.lang],
+    });
+  }
+
+  @Action('addProduct')
+  async addProduct(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'addingProduct';
+    const newProduct = new this.productModel({
+      categoryId: ctx.session.admin.selectedCategoryId,
+      lastState: 'awaitName',
+    });
+    await newProduct.save();
+    ctx.session.admin.newProductId = newProduct._id as string;
+    await ctx.editMessageText(askProductName[ctx.session.lang] as string);
+  }
+
+  @Action('backFromCategoryInline')
+  async backFromCategoryInline(@Ctx() ctx: MyContext) {
+    await this.listOfCategories(ctx, ctx.session.admin.categoryPage || 0);
+  }
+
+  @Action('changeCategoryName')
+  async changeCategoryName(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'awaitNewCategoryName';
+    await ctx.editMessageText(askcategoryName[ctx.session.lang] as string);
+  }
+
+  @Action('deleteCategory')
+  async deleteCategory(@Ctx() ctx: MyContext) {
+    await this.productModel.deleteMany({
+      categoryId: ctx.session.admin.selectedCategoryId,
+    });
+    await this.categoryModel.findByIdAndDelete(
+      ctx.session.admin.selectedCategoryId,
+    );
+    await this.listOfCategories(ctx, ctx.session.admin.categoryPage || 0, true);
+  }
+
+  @Action('backFromEditCategoryMenu')
+  async backFromEditCategoryMenu(@Ctx() ctx: MyContext) {
+    const category = await this.categoryModel.findById(
+      ctx.session.admin.selectedCategoryId,
+    );
+    if (!category) return;
+    await ctx.editMessageText(
+      `${category.name} ${categoryName[ctx.session.lang]}`,
+      {
+        reply_markup: categoryInline[ctx.session.lang],
+      },
+    );
   }
 }

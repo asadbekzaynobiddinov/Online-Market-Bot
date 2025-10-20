@@ -8,6 +8,9 @@ export type MyContext = Context &
       lastMessage: any;
       admin: {
         lastState: string;
+        selectedCategoryId: string;
+        categoryPage: number;
+        newProductId: string;
       };
     };
   };

@@ -1,5 +1,5 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
+import { Inject, UseGuards } from '@nestjs/common';
 import { Cache } from '@nestjs/cache-manager';
 import { InjectModel } from '@nestjs/mongoose';
 import { Update, On, Ctx } from 'nestjs-telegraf';
@@ -15,16 +15,30 @@ import {
   noAdminRights,
   referalMenu,
   categoryMenu,
+  askProductPrice,
+  uncorrectPrice,
+  askProductDeskription,
+  askProductPicture,
+  askProductUnit,
+  askProductQuantity,
+  uncorrectQuantity,
+  categoryName,
+  categoryInline,
+  editCategoryMenu,
 } from 'src/common/constants';
 import { Markup } from 'telegraf';
 import { Category } from 'src/common/database/schemas/category.schema';
+import { Product } from 'src/common/database/schemas/products.schema';
+import { LanguageGuard } from 'src/common/guards/language.guard';
 
+@UseGuards(LanguageGuard)
 @Update()
 export class UserMessages {
   constructor(
     @Inject(CACHE_MANAGER) private cache: Cache,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Category.name) private cateoryModel: Model<Category>,
+    @InjectModel(Product.name) private productModel: Model<Product>,
   ) {}
   @On('text')
   async handleText(@Ctx() ctx: MyContext) {
@@ -95,6 +109,97 @@ export class UserMessages {
             reply_markup: categoryMenu[user.lang],
           },
         );
+        return;
+      }
+      case 'awaitNewCategoryName': {
+        const newCategoryName = (ctx.update as { message: { text: string } })
+          .message.text;
+        await this.cateoryModel.findByIdAndUpdate(
+          {
+            _id: ctx.session.admin.selectedCategoryId,
+          },
+          {
+            name: newCategoryName,
+          },
+        );
+        ctx.session.lastMessage = await ctx.reply(
+          chooseDepartment[ctx.session.lang] as string,
+          {
+            reply_markup: editCategoryMenu[ctx.session.lang],
+          },
+        );
+        return;
+      }
+      case 'addingProduct': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.newProductId,
+        );
+        if (!product) return;
+        switch (product.lastState) {
+          case 'awaitName': {
+            const productName = (ctx.update as { message: { text: string } })
+              .message.text;
+            product.name = productName;
+            product.lastState = 'awaitPrice';
+            await product.save();
+            await ctx.reply(askProductPrice[ctx.session.lang] as string);
+            return;
+          }
+          case 'awaitPrice': {
+            const productPrice = (ctx.update as { message: { text: string } })
+              .message.text;
+            const correctPrice = productPrice.match(/^[0-9]+$/);
+            if (!correctPrice) {
+              await ctx.reply(uncorrectPrice[ctx.session.lang] as string);
+              return;
+            }
+            product.price = +productPrice;
+            product.lastState = 'awaitDescription';
+            await product.save();
+            await ctx.reply(askProductDeskription[ctx.session.lang] as string);
+            return;
+          }
+          case 'awaitDescription': {
+            const desription = (ctx.update as { message: { text: string } })
+              .message.text;
+            product.description = desription;
+            product.lastState = 'awaitPicture';
+            await product.save();
+            await ctx.reply(askProductPicture[ctx.session.lang] as string);
+            return;
+          }
+          case 'awaitUnit': {
+            const unit = (ctx.update as { message: { text: string } }).message
+              .text;
+            product.unit = unit;
+            product.lastState = 'awaitQuantity';
+            await product.save();
+            await ctx.reply(askProductQuantity[ctx.session.lang] as string);
+            return;
+          }
+          case 'awaitQuantity': {
+            const quantity = (ctx.update as { message: { text: string } })
+              .message.text;
+            const correctQuantity = quantity.match(/^[0-9]+$/);
+            if (!correctQuantity) {
+              await ctx.reply(uncorrectQuantity[ctx.session.lang] as string);
+              return;
+            }
+            product.quantity = +quantity;
+            product.lastState = 'fullfilled';
+            await product.save();
+            ctx.session.admin.lastState = '';
+            const category = await this.cateoryModel.findById(
+              product.categoryId,
+            );
+            ctx.session.lastMessage = await ctx.reply(
+              `${category?.name} ${categoryName[ctx.session.lang]}`,
+              {
+                reply_markup: categoryInline[ctx.session.lang],
+              },
+            );
+          }
+        }
       }
     }
 
@@ -151,5 +256,21 @@ export class UserMessages {
       "Siz muvaffaqiyatli ro'yxatdan o'tdingiz!",
       Markup.removeKeyboard(),
     );
+  }
+
+  @On('photo')
+  async handlePhoto(@Ctx() ctx: MyContext) {
+    if (ctx.session.admin.lastState !== 'addingProduct') return;
+    const product = await this.productModel.findById(
+      ctx.session.admin.newProductId,
+    );
+    if (!product) return;
+    const photos = (ctx.update as { message: { photo: { file_id: string }[] } })
+      .message.photo;
+    const fileId = photos[photos.length - 1].file_id;
+    product.imageUrl = fileId;
+    product.lastState = 'awaitUnit';
+    await product.save();
+    await ctx.reply(askProductUnit[ctx.session.lang] as string);
   }
 }

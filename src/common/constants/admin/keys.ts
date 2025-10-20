@@ -84,3 +84,37 @@ export const backFromReferalList: Record<string, InlineKeyboardMarkup> = {
     ],
   },
 };
+
+export const categoryInline: Record<string, InlineKeyboardMarkup> = {
+  uz: {
+    inline_keyboard: [
+      [Markup.button.callback('⚙️ Taxrirlash', 'editCategory')],
+      [Markup.button.callback("➕ Mahsulot qo'shish", 'addProduct')],
+      [Markup.button.callback('⬅️ Orqaga', 'backFromCategoryInline')],
+    ],
+  },
+  kr: {
+    inline_keyboard: [
+      [Markup.button.callback('⚙️ Таҳрирлаш', 'editCategory')],
+      [Markup.button.callback('➕ Маҳсулот қўшиш', 'addProduct')],
+      [Markup.button.callback('⬅️ Орқага', 'backFromCategoryInline')],
+    ],
+  },
+};
+
+export const editCategoryMenu: Record<string, InlineKeyboardMarkup> = {
+  uz: {
+    inline_keyboard: [
+      [Markup.button.callback("✏️ Nomini o'zgartirish", 'changeCategoryName')],
+      [Markup.button.callback("🗑️ O'chirib yuborish", 'deleteCategory')],
+      [Markup.button.callback('⬅️ Orqaga', 'backFromEditCategoryMenu')],
+    ],
+  },
+  kr: {
+    inline_keyboard: [
+      [Markup.button.callback('✏️ Номини ўзгартириш', 'changeCategoryName')],
+      [Markup.button.callback('🗑️ Ўчириб юбориш', 'deleteCategory')],
+      [Markup.button.callback('⬅️ Орқага', 'backFromEditCategoryMenu')],
+    ],
+  },
+};
