@@ -250,7 +250,9 @@ export class AdminActions {
     const category = await this.categoryModel.findById(
       ctx.session.admin.selectedCategoryId,
     );
+
     if (!category) return;
+
     await ctx.editMessageText(
       `${category.name} ${categoryName[ctx.session.lang]}`,
       {
