@@ -25,13 +25,14 @@ import {
   categoryName,
   categoryInline,
   editCategoryMenu,
+  productmenu,
 } from 'src/common/constants';
 import { Markup } from 'telegraf';
 import { Category } from 'src/common/database/schemas/category.schema';
 import { Product } from 'src/common/database/schemas/products.schema';
+import { AdminGuard } from 'src/common/guards/admin.guard';
 import { LanguageGuard } from 'src/common/guards/language.guard';
 
-@UseGuards(LanguageGuard)
 @Update()
 export class UserMessages {
   constructor(
@@ -94,6 +95,15 @@ export class UserMessages {
           },
         );
         return;
+      case "🛒 Mahsulotlar Bo'limi":
+      case '🛒 Маҳсулотлар бўлими':
+        if (user.role != 'admin') return;
+        ctx.session.lastMessage = await ctx.reply(
+          chooseDepartment[user.lang] as string,
+          {
+            reply_markup: productmenu[user.lang],
+          },
+        );
     }
 
     switch (ctx.session.admin.lastState) {
@@ -123,9 +133,9 @@ export class UserMessages {
           },
         );
         ctx.session.lastMessage = await ctx.reply(
-          chooseDepartment[ctx.session.lang] as string,
+          chooseDepartment[user.lang] as string,
           {
-            reply_markup: editCategoryMenu[ctx.session.lang],
+            reply_markup: editCategoryMenu[user.lang],
           },
         );
         return;
@@ -142,7 +152,7 @@ export class UserMessages {
             product.name = productName;
             product.lastState = 'awaitPrice';
             await product.save();
-            await ctx.reply(askProductPrice[ctx.session.lang] as string);
+            await ctx.reply(askProductPrice[user.lang] as string);
             return;
           }
           case 'awaitPrice': {
@@ -150,13 +160,13 @@ export class UserMessages {
               .message.text;
             const correctPrice = productPrice.match(/^[0-9]+$/);
             if (!correctPrice) {
-              await ctx.reply(uncorrectPrice[ctx.session.lang] as string);
+              await ctx.reply(uncorrectPrice[user.lang] as string);
               return;
             }
             product.price = +productPrice;
             product.lastState = 'awaitDescription';
             await product.save();
-            await ctx.reply(askProductDeskription[ctx.session.lang] as string);
+            await ctx.reply(askProductDeskription[user.lang] as string);
             return;
           }
           case 'awaitDescription': {
@@ -165,7 +175,7 @@ export class UserMessages {
             product.description = desription;
             product.lastState = 'awaitPicture';
             await product.save();
-            await ctx.reply(askProductPicture[ctx.session.lang] as string);
+            await ctx.reply(askProductPicture[user.lang] as string);
             return;
           }
           case 'awaitUnit': {
@@ -174,7 +184,7 @@ export class UserMessages {
             product.unit = unit;
             product.lastState = 'awaitQuantity';
             await product.save();
-            await ctx.reply(askProductQuantity[ctx.session.lang] as string);
+            await ctx.reply(askProductQuantity[user.lang] as string);
             return;
           }
           case 'awaitQuantity': {
@@ -182,7 +192,7 @@ export class UserMessages {
               .message.text;
             const correctQuantity = quantity.match(/^[0-9]+$/);
             if (!correctQuantity) {
-              await ctx.reply(uncorrectQuantity[ctx.session.lang] as string);
+              await ctx.reply(uncorrectQuantity[user.lang] as string);
               return;
             }
             product.quantity = +quantity;
@@ -193,9 +203,9 @@ export class UserMessages {
               product.categoryId,
             );
             ctx.session.lastMessage = await ctx.reply(
-              `${category?.name} ${categoryName[ctx.session.lang]}`,
+              `${category?.name} ${categoryName[user.lang]}`,
               {
-                reply_markup: categoryInline[ctx.session.lang],
+                reply_markup: categoryInline[user.lang],
               },
             );
           }
@@ -258,6 +268,8 @@ export class UserMessages {
     );
   }
 
+  @UseGuards(AdminGuard)
+  @UseGuards(LanguageGuard)
   @On('photo')
   async handlePhoto(@Ctx() ctx: MyContext) {
     if (ctx.session.admin.lastState !== 'addingProduct') return;

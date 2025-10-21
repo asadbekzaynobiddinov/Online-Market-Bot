@@ -101,6 +101,7 @@ export class AdminActions {
     @Ctx() ctx: MyContext,
     page: number = 0,
     itsFromDeleteCategory: boolean = false,
+    callback: string = 'selectedCategory',
   ) {
     const PAGE_SIZE = 10;
     const BUTTONS_PER_ROW = 5;
@@ -140,7 +141,7 @@ export class AdminActions {
         .map((c, idx) =>
           Markup.button.callback(
             `${startIndex + i + idx + 1}`,
-            `selectedCategory=${c._id}`,
+            `${callback}=${c._id}`,
           ),
         );
       buttons.push(row);
@@ -178,7 +179,7 @@ export class AdminActions {
       ctx.update as { callback_query: { data: string } }
     ).callback_query.data.split('=')[1];
     ctx.session.admin.categoryPage = +page;
-    await this.listOfCategories(ctx, +page);
+    await this.listOfCategories(ctx, +page, false, 'selectedCategory');
   }
 
   @Action('backFromCategoryList')
@@ -225,7 +226,12 @@ export class AdminActions {
 
   @Action('backFromCategoryInline')
   async backFromCategoryInline(@Ctx() ctx: MyContext) {
-    await this.listOfCategories(ctx, ctx.session.admin.categoryPage || 0);
+    await this.listOfCategories(
+      ctx,
+      ctx.session.admin.categoryPage || 0,
+      false,
+      'selectedCategory',
+    );
   }
 
   @Action('changeCategoryName')
@@ -242,7 +248,12 @@ export class AdminActions {
     await this.categoryModel.findByIdAndDelete(
       ctx.session.admin.selectedCategoryId,
     );
-    await this.listOfCategories(ctx, ctx.session.admin.categoryPage || 0, true);
+    await this.listOfCategories(
+      ctx,
+      ctx.session.admin.categoryPage || 0,
+      true,
+      'selectedCategory',
+    );
   }
 
   @Action('backFromEditCategoryMenu')
