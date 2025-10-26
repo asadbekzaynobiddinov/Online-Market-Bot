@@ -11,6 +11,8 @@ export type MyContext = Context &
         selectedCategoryId: string;
         categoryPage: number;
         newProductId: string;
+        selectedProductId: string;
+        productPage: number;
       };
     };
   };

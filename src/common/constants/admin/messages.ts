@@ -29,8 +29,8 @@ export const askcategoryName = {
 };
 
 export const existsCategories = {
-  uz: 'Mavjud kategoriyalar:\n\n',
-  kr: 'Мавжуд категориялар:\n\n',
+  uz: 'Mavjud kategoriyalar:',
+  kr: 'Мавжуд категориялар:',
 };
 
 export const categoryName = {
@@ -81,4 +81,19 @@ export const uncorrectQuantity = {
 export const noCategories = {
   uz: "Hozircha hech qanday kategoriya mavjud emas. Iltimos, avval kategoriya qo'shing.",
   kr: 'Ҳозирча ҳеч қандай категория мавжуд эмас. Илтимос, аввал категория қўшинг.',
+};
+
+export const noProducts = {
+  uz: "Hozircha hech qanday mahsulot mavjud emas. Iltimos, avval mahsulot qo'shing.",
+  kr: 'Ҳозирча ҳеч қандай маҳсулот мавжуд эмас. Илтимос, аввал маҳсулот қўшинг.',
+};
+
+export const existsProducts = {
+  uz: 'Mavjud mahsulotlar:\n\n',
+  kr: 'Мавжуд маҳсулотлар:\n\n',
+};
+
+export const productName = {
+  uz: '🛍️ Mahsulot nomi: ',
+  kr: '🛍️ Маҳсулот номи: ',
 };

@@ -120,3 +120,49 @@ export const editCategoryMenu: Record<string, InlineKeyboardMarkup> = {
     ],
   },
 };
+
+export const productInline: Record<string, InlineKeyboardMarkup> = {
+  uz: {
+    inline_keyboard: [
+      [Markup.button.callback('⚙️ Taxrirlash', 'editProduct')],
+      [Markup.button.callback("🗑️ O'chirib yuborish", 'deleteProduct')],
+      [Markup.button.callback('⬅️ Orqaga', 'backFromProductInline')],
+    ],
+  },
+  kr: {
+    inline_keyboard: [
+      [Markup.button.callback('⚙️ Таҳрирлаш', 'editProduct')],
+      [Markup.button.callback('🗑️ Ўчириб юбориш', 'deleteProduct')],
+      [Markup.button.callback('⬅️ Орқага', 'backFromProductInline')],
+    ],
+  },
+};
+
+export const editProductMenu: Record<string, InlineKeyboardMarkup> = {
+  uz: {
+    inline_keyboard: [
+      [Markup.button.callback("✏️ Nomini o'zgartirish", 'changeProductName')],
+      [Markup.button.callback("💸 Narxini o'zgartirish", 'changeProductPrice')],
+      [
+        Markup.button.callback(
+          "ℹ️ Tavsifini o'zgartirish",
+          'changeProductDescription',
+        ),
+      ],
+      [Markup.button.callback("🖼️ Rasmini o'zgartirish", 'changeProductImage')],
+      [
+        Markup.button.callback(
+          "📦 O'lchov birligini o'zgartirish",
+          'changeProductUnit',
+        ),
+      ],
+      [
+        Markup.button.callback(
+          "🔢 Miqdorini o'zgartirish",
+          'changeProductQuantity',
+        ),
+      ],
+      [Markup.button.callback('⬅️ Orqaga', 'backFromEditProductMenu')],
+    ],
+  },
+};

@@ -17,9 +17,15 @@ import {
   chooseDepartment,
   createdDate,
   editCategoryMenu,
+  editProductMenu,
   existsCategories,
+  existsProducts,
   noCategories,
+  noProducts,
   noReferals,
+  productInline,
+  productmenu,
+  productName,
   referalCreated,
   referalMenu,
 } from 'src/common/constants';
@@ -102,6 +108,9 @@ export class AdminActions {
     page: number = 0,
     itsFromDeleteCategory: boolean = false,
     callback: string = 'selectedCategory',
+    navigationCallback: string = 'categoryPage',
+    backfromCallback: string = 'backFromCategoryList',
+    messageTitle: string = existsCategories[ctx.session.lang] as string,
   ) {
     const PAGE_SIZE = 10;
     const BUTTONS_PER_ROW = 5;
@@ -113,12 +122,9 @@ export class AdminActions {
         show_alert: true,
       });
       if (itsFromDeleteCategory) {
-        await ctx.editMessageText(
-          chooseDepartment[ctx.session.lang] as string,
-          {
-            reply_markup: categoryMenu[ctx.session.lang],
-          },
-        );
+        await ctx.editMessageText(messageTitle, {
+          reply_markup: categoryMenu[ctx.session.lang],
+        });
       }
       return;
     }
@@ -129,7 +135,7 @@ export class AdminActions {
     const endIndex = startIndex + PAGE_SIZE;
     const visibleCategories = categories.slice(startIndex, endIndex);
 
-    let text: string = existsCategories[ctx.session.lang] as string;
+    let text: string = messageTitle + '\n\n';
     visibleCategories.forEach((c, i) => {
       text += `<b>${startIndex + i + 1}.</b> ${c.name}\n`;
     });
@@ -151,21 +157,20 @@ export class AdminActions {
     if (totalPages > 1) {
       if (page > 0) {
         navButtons.push(
-          Markup.button.callback('◀️', `categoryPage=${page - 1}`),
+          Markup.button.callback('◀️', `${navigationCallback}=${page - 1}`),
         );
       }
       if (page < totalPages - 1) {
         navButtons.push(
-          Markup.button.callback('▶️', `categoryPage=${page + 1}`),
+          Markup.button.callback('▶️', `${navigationCallback}=${page + 1}`),
         );
       }
     }
-
     if (navButtons.length > 0) {
       buttons.push(navButtons);
     }
 
-    buttons.push([Markup.button.callback('⬅️ Orqaga', 'backFromCategoryList')]);
+    buttons.push([Markup.button.callback('⬅️ Orqaga', backfromCallback)]);
 
     await ctx.editMessageText(text, {
       parse_mode: 'HTML',
@@ -268,6 +273,175 @@ export class AdminActions {
       `${category.name} ${categoryName[ctx.session.lang]}`,
       {
         reply_markup: categoryInline[ctx.session.lang],
+      },
+    );
+  }
+
+  @Action('listOfProducts')
+  async listOfProducts(@Ctx() ctx: MyContext) {
+    await this.listOfCategories(
+      ctx,
+      0,
+      false,
+      'categoryForProducts',
+      'pageOfCategoryForProducts',
+      'backFromProductListToCategory',
+      chooseDepartment[ctx.session.lang] as string,
+    );
+  }
+
+  @Action(/pageOfCategoryForProducts=(\d+)/)
+  async pageOfCategoryForProducts(@Ctx() ctx: MyContext) {
+    const page = (
+      ctx.update as { callback_query: { data: string } }
+    ).callback_query.data.split('=')[1];
+    ctx.session.admin.categoryPage = +page;
+    await this.listOfCategories(
+      ctx,
+      +page,
+      false,
+      'categoryForProducts',
+      'pageOfCategoryForProducts',
+      'backFromProductListToCategory',
+      chooseDepartment[ctx.session.lang] as string,
+    );
+  }
+
+  @Action(/categoryForProducts/)
+  async categoryForProducts(@Ctx() ctx: MyContext, page: number = 0) {
+    const id = (
+      ctx.update as { callback_query: { data: string } }
+    ).callback_query.data.split('=')[1];
+    const category = await this.categoryModel.findById(id);
+    if (!category) return;
+    const products = await this.productModel
+      .find({})
+      .where('categoryId')
+      .equals(category._id);
+    if (products.length == 0) {
+      await ctx.answerCbQuery(noProducts[ctx.session.lang] as string, {
+        show_alert: true,
+      });
+      return;
+    }
+    const PAGE_SIZE = 10;
+    const BUTTONS_PER_ROW = 5;
+
+    const totalPages = Math.ceil(products.length / PAGE_SIZE);
+
+    const startIndex = page * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+    const visibleProducts = products.slice(startIndex, endIndex);
+
+    let text: string = existsProducts[ctx.session.lang] as string;
+    visibleProducts.forEach((p, i) => {
+      text += `<b>${startIndex + i + 1}.</b> ${p.name}\n`;
+    });
+
+    const buttons: any[] = [];
+    for (let i = 0; i < visibleProducts.length; i += BUTTONS_PER_ROW) {
+      const row = visibleProducts
+        .slice(i, i + BUTTONS_PER_ROW)
+        .map((p, idx) =>
+          Markup.button.callback(
+            `${startIndex + i + idx + 1}`,
+            `selectedProduct=${p._id}`,
+          ),
+        );
+      buttons.push(row);
+    }
+
+    const navButtons: any[] = [];
+    if (totalPages > 1) {
+      if (page > 0) {
+        navButtons.push(
+          Markup.button.callback('◀️', `pageOfCategoryForProducts=${page - 1}`),
+        );
+      }
+      if (page < totalPages - 1) {
+        navButtons.push(
+          Markup.button.callback('▶️', `pageOfCategoryForProducts=${page + 1}`),
+        );
+      }
+    }
+    buttons.push(navButtons);
+
+    buttons.push([Markup.button.callback('⬅️ Orqaga', 'backFromProductList')]);
+    await ctx.editMessageText(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard(buttons as []),
+    });
+  }
+
+  @Action('backFromProductList')
+  async backFromProductList(@Ctx() ctx: MyContext) {
+    await this.listOfCategories(
+      ctx,
+      ctx.session.admin.categoryPage || 0,
+      false,
+      'categoryForProducts',
+      'pageOfCategoryForProducts',
+      'backFromProductListToCategory',
+      chooseDepartment[ctx.session.lang] as string,
+    );
+  }
+
+  @Action('backFromProductListToCategory')
+  async backFromProductListToCategory(@Ctx() ctx: MyContext) {
+    await ctx.editMessageText(chooseDepartment[ctx.session.lang] as string, {
+      reply_markup: productmenu[ctx.session.lang],
+    });
+  }
+
+  @Action(/selectedProduct/)
+  async selectedProduct(@Ctx() ctx: MyContext, id?: string) {
+    let productId: string;
+
+    if (id) {
+      productId = id;
+    } else {
+      productId = (
+        ctx.update as { callback_query: { data: string } }
+      ).callback_query.data.split('=')[1];
+    }
+
+    const product = await this.productModel.findById(productId);
+    if (!product) return;
+
+    ctx.session.admin.selectedProductId = product._id as string;
+
+    await ctx.deleteMessage();
+
+    ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+      caption: `${productName[ctx.session.lang]}: ${product.name}\n\nMahsulot haqida ma'lumot kiritilmagan.`,
+      reply_markup: productInline[ctx.session.lang],
+    });
+  }
+
+  @Action('editProduct')
+  async editProduct(@Ctx() ctx: MyContext) {
+    const product = await this.productModel.findById(
+      ctx.session.admin.selectedProductId,
+    );
+    if (!product) return;
+    await ctx.editMessageCaption(
+      `${productName[ctx.session.lang]}: ${product.name}\n\nMahsulot haqida ma'lumot kiritilmagan.`,
+      {
+        reply_markup: editProductMenu[ctx.session.lang],
+      },
+    );
+  }
+
+  @Action('backFromEditProductMenu')
+  async backFromEditProductMenu(@Ctx() ctx: MyContext) {
+    const product = await this.productModel.findById(
+      ctx.session.admin.selectedProductId,
+    );
+    if (!product) return;
+    await ctx.editMessageCaption(
+      `${productName[ctx.session.lang]}: ${product.name}\n\nMahsulot haqida ma'lumot kiritilmagan.`,
+      {
+        reply_markup: productInline[ctx.session.lang],
       },
     );
   }
