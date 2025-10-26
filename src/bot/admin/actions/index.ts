@@ -111,6 +111,7 @@ export class AdminActions {
     navigationCallback: string = 'categoryPage',
     backfromCallback: string = 'backFromCategoryList',
     messageTitle: string = existsCategories[ctx.session.lang] as string,
+    itsFromDeleteProduct: boolean = false,
   ) {
     const PAGE_SIZE = 10;
     const BUTTONS_PER_ROW = 5;
@@ -172,10 +173,17 @@ export class AdminActions {
 
     buttons.push([Markup.button.callback('⬅️ Orqaga', backfromCallback)]);
 
-    await ctx.editMessageText(text, {
-      parse_mode: 'HTML',
-      ...Markup.inlineKeyboard(buttons as []),
-    });
+    if (itsFromDeleteProduct) {
+      ctx.session.lastMessage = await ctx.sendMessage(text, {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard(buttons as []),
+      });
+    } else {
+      await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard(buttons as []),
+      });
+    }
   }
 
   @Action(/categoryPage=(\d+)/)
@@ -278,7 +286,23 @@ export class AdminActions {
   }
 
   @Action('listOfProducts')
-  async listOfProducts(@Ctx() ctx: MyContext) {
+  async listOfProducts(
+    @Ctx() ctx: MyContext,
+    itsFromDeleteProduct: boolean = false,
+  ) {
+    if (itsFromDeleteProduct) {
+      await this.listOfCategories(
+        ctx,
+        ctx.session.admin.categoryPage || 0,
+        false,
+        'categoryForProducts',
+        'pageOfCategoryForProducts',
+        'backFromProductListToCategory',
+        chooseDepartment[ctx.session.lang] as string,
+        true,
+      );
+      return;
+    }
     await this.listOfCategories(
       ctx,
       0,
@@ -444,5 +468,19 @@ export class AdminActions {
         reply_markup: productInline[ctx.session.lang],
       },
     );
+  }
+
+  @Action('deleteProduct')
+  async deleteProduct(@Ctx() ctx: MyContext) {
+    try {
+      await this.productModel.findByIdAndDelete(
+        ctx.session.admin.selectedProductId,
+      );
+    } catch (error) {
+      console.log(error);
+    }
+    await ctx.deleteMessage();
+    ctx.session.admin.selectedProductId = '';
+    await this.listOfProducts(ctx, true);
   }
 }
