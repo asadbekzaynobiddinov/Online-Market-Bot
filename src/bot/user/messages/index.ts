@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, UseGuards } from '@nestjs/common';
 import { Cache } from '@nestjs/cache-manager';
@@ -26,6 +27,9 @@ import {
   categoryInline,
   editCategoryMenu,
   productmenu,
+  productName,
+  editProductMenu,
+  existsProducts,
 } from 'src/common/constants';
 import { Markup } from 'telegraf';
 import { Category } from 'src/common/database/schemas/category.schema';
@@ -104,6 +108,7 @@ export class UserMessages {
             reply_markup: productmenu[user.lang],
           },
         );
+        break;
     }
 
     switch (ctx.session.admin.lastState) {
@@ -119,7 +124,7 @@ export class UserMessages {
             reply_markup: categoryMenu[user.lang],
           },
         );
-        return;
+        break;
       }
       case 'awaitNewCategoryName': {
         const newCategoryName = (ctx.update as { message: { text: string } })
@@ -138,7 +143,7 @@ export class UserMessages {
             reply_markup: editCategoryMenu[user.lang],
           },
         );
-        return;
+        break;
       }
       case 'addingProduct': {
         const product = await this.productModel.findById(
@@ -210,6 +215,149 @@ export class UserMessages {
             );
           }
         }
+        break;
+      }
+      case 'editingProductName': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.selectedProductId,
+        );
+        if (!product) return;
+        const newName = (ctx.update as { message: { text: string } }).message
+          .text;
+        product.name = newName;
+        await product.save();
+        ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+          caption:
+            `${productName[user.lang]} ${product.name}\n\n` +
+            `ℹ️ ${product.description}\n` +
+            `💸 ${product.price}\n` +
+            `📦 ${product.quantity} ${product.unit}`,
+          reply_markup: editProductMenu[user.lang],
+        });
+        break;
+      }
+      case 'editingProductPrice': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.selectedProductId,
+        );
+        if (!product) return;
+
+        const newPrice = (ctx.update as { message: { text: string } }).message
+          .text;
+
+        const correctPrice = newPrice.match(/^[0-9]+$/);
+        if (!correctPrice) {
+          await ctx.reply(uncorrectPrice[user.lang] as string);
+          return;
+        }
+        product.price = +newPrice;
+        await product.save();
+        ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+          caption:
+            `${productName[user.lang]} ${product.name}\n\n` +
+            `ℹ️ ${product.description}\n` +
+            `💸 ${product.price}\n` +
+            `📦 ${product.quantity} ${product.unit}`,
+          reply_markup: editProductMenu[user.lang],
+        });
+        break;
+      }
+      case 'editingProductDescription': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.selectedProductId,
+        );
+        if (!product) return;
+        const newDesc = (ctx.update as { message: { text: string } }).message
+          .text;
+        product.description = newDesc;
+        await product.save();
+        ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+          caption:
+            `${productName[user.lang]} ${product.name}\n\n` +
+            `ℹ️ ${product.description}\n` +
+            `💸 ${product.price}\n` +
+            `📦 ${product.quantity} ${product.unit}`,
+          reply_markup: editProductMenu[user.lang],
+        });
+        break;
+      }
+      case 'editingProductUnit': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.selectedProductId,
+        );
+        if (!product) return;
+        const newUnit = (ctx.update as { message: { text: string } }).message
+          .text;
+        product.unit = newUnit;
+        await product.save();
+        ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+          caption:
+            `${productName[user.lang]} ${product.name}\n\n` +
+            `ℹ️ ${product.description}\n` +
+            `💸 ${product.price}\n` +
+            `📦 ${product.quantity} ${product.unit}`,
+          reply_markup: editProductMenu[user.lang],
+        });
+        break;
+      }
+      case 'editingProductQuantity': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.selectedProductId,
+        );
+        if (!product) return;
+        const newQuantity = (ctx.update as { message: { text: string } })
+          .message.text;
+        const correctQuantity = newQuantity.match(/^[0-9]+$/);
+        if (!correctQuantity) {
+          await ctx.reply(uncorrectQuantity[user.lang] as string);
+          return;
+        }
+        product.quantity = +newQuantity;
+        await product.save();
+        ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+          caption:
+            `${productName[user.lang]} ${product.name}\n\n` +
+            `ℹ️ ${product.description}\n` +
+            `💸 ${product.price}\n` +
+            `📦 ${product.quantity} ${product.unit}`,
+          reply_markup: editProductMenu[user.lang],
+        });
+        break;
+      }
+      case 'searchingProduct': {
+        const name = (ctx.update as { message: { text: string } }).message.text;
+        ctx.session.admin.searchingProductName = name;
+        const products = await this.productModel.find({
+          name: { $regex: name, $options: 'i' },
+        });
+        const BUTTONS_PER_ROW = 5;
+
+        let text: string = existsProducts[user.lang] as string;
+        products.forEach((p, i) => {
+          text += `<b>${i + 1}.</b> ${p.name}\n`;
+        });
+
+        const buttons: any[] = [];
+        for (let i = 0; i < products.length; i += BUTTONS_PER_ROW) {
+          const row = products
+            .slice(i, i + BUTTONS_PER_ROW)
+            .map((p, idx) =>
+              Markup.button.callback(
+                `${i + idx + 1}`,
+                `searchedProduct=${p._id}`,
+              ),
+            );
+          buttons.push(row);
+        }
+
+        buttons.push([
+          Markup.button.callback('⬅️ Orqaga', 'backFromSearchProduct'),
+        ]);
+
+        ctx.session.lastMessage = await ctx.sendMessage(text, {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard(buttons as []),
+        });
       }
     }
 
@@ -272,17 +420,46 @@ export class UserMessages {
   @UseGuards(LanguageGuard)
   @On('photo')
   async handlePhoto(@Ctx() ctx: MyContext) {
-    if (ctx.session.admin.lastState !== 'addingProduct') return;
-    const product = await this.productModel.findById(
-      ctx.session.admin.newProductId,
-    );
-    if (!product) return;
-    const photos = (ctx.update as { message: { photo: { file_id: string }[] } })
-      .message.photo;
-    const fileId = photos[photos.length - 1].file_id;
-    product.imageUrl = fileId;
-    product.lastState = 'awaitUnit';
-    await product.save();
-    await ctx.reply(askProductUnit[ctx.session.lang] as string);
+    switch (ctx.session.admin.lastState) {
+      case 'addingProduct': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.newProductId,
+        );
+        if (!product) return;
+        if (product.lastState !== 'awaitPicture') return;
+        const photos = (
+          ctx.update as { message: { photo: { file_id: string }[] } }
+        ).message.photo;
+        const fileId = photos[photos.length - 1].file_id;
+        product.imageUrl = fileId;
+        product.lastState = 'awaitUnit';
+        await product.save();
+        await ctx.reply(askProductUnit[ctx.session.lang] as string);
+        break;
+      }
+      case 'editingProducPicture': {
+        const product = await this.productModel.findById(
+          ctx.session.admin.selectedProductId,
+        );
+        if (!product) return;
+        const photos = (
+          ctx.update as { message: { photo: { file_id: string }[] } }
+        ).message.photo;
+        const fileId = photos[photos.length - 1].file_id;
+        product.imageUrl = fileId;
+        await product.save();
+        ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+          caption:
+            `${productName[ctx.session.lang]} ${product.name}\n\n` +
+            `ℹ️ ${product.description}\n` +
+            `💸 ${product.price}\n` +
+            `📦 ${product.quantity} ${product.unit}`,
+          reply_markup: editProductMenu[ctx.session.lang],
+        });
+        break;
+      }
+      default:
+        break;
+    }
   }
 }

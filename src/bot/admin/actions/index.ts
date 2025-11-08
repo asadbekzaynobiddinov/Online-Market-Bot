@@ -9,7 +9,13 @@ import { config } from 'src/config';
 import { Referal } from 'src/common/database/schemas/referal.schema';
 import {
   askcategoryName,
+  askProductDeskription,
   askProductName,
+  askProductPicture,
+  askProductPrice,
+  askProductQuantity,
+  askProductUnit,
+  backButton,
   backFromReferalList,
   categoryInline,
   categoryMenu,
@@ -332,10 +338,15 @@ export class AdminActions {
   }
 
   @Action(/categoryForProducts/)
-  async categoryForProducts(@Ctx() ctx: MyContext, page: number = 0) {
+  async categoryForProducts(
+    @Ctx() ctx: MyContext,
+    page: number = 0,
+    itsFromDeleteProduct: boolean = false,
+  ) {
     const id = (
       ctx.update as { callback_query: { data: string } }
     ).callback_query.data.split('=')[1];
+    ctx.session.admin.selectedCategoryId = id;
     const category = await this.categoryModel.findById(id);
     if (!category) return;
     const products = await this.productModel
@@ -391,10 +402,17 @@ export class AdminActions {
     buttons.push(navButtons);
 
     buttons.push([Markup.button.callback('⬅️ Orqaga', 'backFromProductList')]);
-    await ctx.editMessageText(text, {
-      parse_mode: 'HTML',
-      ...Markup.inlineKeyboard(buttons as []),
-    });
+    if (itsFromDeleteProduct) {
+      ctx.session.lastMessage = await ctx.sendMessage(text, {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard(buttons as []),
+      });
+    } else {
+      await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard(buttons as []),
+      });
+    }
   }
 
   @Action('backFromProductList')
@@ -437,7 +455,11 @@ export class AdminActions {
     await ctx.deleteMessage();
 
     ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
-      caption: `${productName[ctx.session.lang]}: ${product.name}\n\nMahsulot haqida ma'lumot kiritilmagan.`,
+      caption:
+        `${productName[ctx.session.lang]} ${product.name}\n\n` +
+        `ℹ️ ${product.description}\n` +
+        `💸 ${product.price}\n` +
+        `📦 ${product.quantity} ${product.unit}`,
       reply_markup: productInline[ctx.session.lang],
     });
   }
@@ -449,7 +471,10 @@ export class AdminActions {
     );
     if (!product) return;
     await ctx.editMessageCaption(
-      `${productName[ctx.session.lang]}: ${product.name}\n\nMahsulot haqida ma'lumot kiritilmagan.`,
+      `${productName[ctx.session.lang]} ${product.name}\n\n` +
+        `ℹ️ ${product.description}\n` +
+        `💸 ${product.price}\n` +
+        `📦 ${product.quantity} ${product.unit}`,
       {
         reply_markup: editProductMenu[ctx.session.lang],
       },
@@ -463,7 +488,10 @@ export class AdminActions {
     );
     if (!product) return;
     await ctx.editMessageCaption(
-      `${productName[ctx.session.lang]}: ${product.name}\n\nMahsulot haqida ma'lumot kiritilmagan.`,
+      `${productName[ctx.session.lang]} ${product.name}\n\n` +
+        `ℹ️ ${product.description}\n` +
+        `💸 ${product.price}\n` +
+        `📦 ${product.quantity} ${product.unit}`,
       {
         reply_markup: productInline[ctx.session.lang],
       },
@@ -481,6 +509,205 @@ export class AdminActions {
     }
     await ctx.deleteMessage();
     ctx.session.admin.selectedProductId = '';
-    await this.listOfProducts(ctx, true);
+    await this.categoryForProducts(
+      ctx,
+      ctx.session.admin.categoryPage || 0,
+      true,
+    );
+  }
+
+  @Action('changeProductName')
+  async changeProductName(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'editingProductName';
+    await ctx.deleteMessage();
+    await ctx.reply(askProductName[ctx.session.lang] as string);
+  }
+
+  @Action('changeProductPrice')
+  async changeProductPrice(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'editingProductPrice';
+    await ctx.deleteMessage();
+    await ctx.reply(askProductPrice[ctx.session.lang] as string);
+  }
+
+  @Action('changeProductDescription')
+  async changeProductDescription(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'editingProductDescription';
+    await ctx.deleteMessage();
+    await ctx.reply(askProductDeskription[ctx.session.lang] as string);
+  }
+
+  @Action('changeProductImage')
+  async changeProductImage(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'editingProducPicture';
+    await ctx.deleteMessage();
+    await ctx.reply(askProductPicture[ctx.session.lang] as string);
+  }
+
+  @Action('changeProductUnit')
+  async changeProductUnit(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'editingProductUnit';
+    await ctx.deleteMessage();
+    await ctx.reply(askProductUnit[ctx.session.lang] as string);
+  }
+
+  @Action('changeProductQuantity')
+  async changeProductQuantity(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'editingProductQuantity';
+    await ctx.deleteMessage();
+    await ctx.reply(askProductQuantity[ctx.session.lang] as string);
+  }
+
+  @Action('backFromProductInline')
+  async backFromProductInline(@Ctx() ctx: MyContext) {
+    await ctx.deleteMessage();
+    const category = await this.categoryModel.findById(
+      ctx.session.admin.selectedCategoryId,
+    );
+    if (!category) return;
+    const products = await this.productModel
+      .find({})
+      .where('categoryId')
+      .equals(category._id);
+    if (products.length == 0) {
+      await ctx.answerCbQuery(noProducts[ctx.session.lang] as string, {
+        show_alert: true,
+      });
+      return;
+    }
+    const PAGE_SIZE = 10;
+    const BUTTONS_PER_ROW = 5;
+
+    const totalPages = Math.ceil(products.length / PAGE_SIZE);
+
+    const page = +ctx.session.admin.productPage || 0;
+
+    const startIndex = page * PAGE_SIZE;
+    const endIndex = startIndex + PAGE_SIZE;
+    const visibleProducts = products.slice(startIndex, endIndex);
+
+    let text: string = existsProducts[ctx.session.lang] as string;
+    visibleProducts.forEach((p, i) => {
+      text += `<b>${startIndex + i + 1}.</b> ${p.name}\n`;
+    });
+
+    const buttons: any[] = [];
+    for (let i = 0; i < visibleProducts.length; i += BUTTONS_PER_ROW) {
+      const row = visibleProducts
+        .slice(i, i + BUTTONS_PER_ROW)
+        .map((p, idx) =>
+          Markup.button.callback(
+            `${startIndex + i + idx + 1}`,
+            `selectedProduct=${p._id}`,
+          ),
+        );
+      buttons.push(row);
+    }
+
+    const navButtons: any[] = [];
+    if (totalPages > 1) {
+      if (page > 0) {
+        navButtons.push(
+          Markup.button.callback('◀️', `pageOfCategoryForProducts=${page - 1}`),
+        );
+      }
+      if (page < totalPages - 1) {
+        navButtons.push(
+          Markup.button.callback('▶️', `pageOfCategoryForProducts=${page + 1}`),
+        );
+      }
+    }
+    buttons.push(navButtons);
+
+    buttons.push([Markup.button.callback('⬅️ Orqaga', 'backFromProductList')]);
+
+    ctx.session.lastMessage = await ctx.sendMessage(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard(buttons as []),
+    });
+  }
+
+  @Action('searchProduct')
+  async searchProduct(@Ctx() ctx: MyContext) {
+    ctx.session.admin.lastState = 'searchingProduct';
+    await ctx.editMessageText(askProductName[ctx.session.lang] as string);
+  }
+
+  @Action('backFromSearchProduct')
+  async backFromSearchProduct(@Ctx() ctx: MyContext) {
+    await ctx.editMessageText(chooseDepartment[ctx.session.lang] as string, {
+      reply_markup: productmenu[ctx.session.lang],
+    });
+  }
+
+  @Action(/searchedProduct/)
+  async searchedProduct(@Ctx() ctx: MyContext) {
+    const productId = (
+      ctx.update as { callback_query: { data: string } }
+    ).callback_query.data.split('=')[1];
+    const product = await this.productModel.findById(productId);
+    if (!product) return;
+
+    await ctx.deleteMessage();
+
+    const keyboard = productInline[ctx.session.lang];
+    keyboard.inline_keyboard.pop();
+
+    keyboard.inline_keyboard.push([
+      Markup.button.callback(
+        backButton[ctx.session.lang] as string,
+        'backFromSearchedProduct',
+      ),
+    ]);
+
+    ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+      caption:
+        `${productName[ctx.session.lang]} ${product.name}\n\n` +
+        `ℹ️ ${product.description}\n` +
+        `💸 ${product.price}\n` +
+        `📦 ${product.quantity} ${product.unit}`,
+      reply_markup: keyboard,
+    });
+  }
+
+  @Action('backFromSearchedProduct')
+  async backFromSearchedProduct(@Ctx() ctx: MyContext) {
+    await ctx.deleteMessage();
+    if (!ctx.session.admin.searchingProductName) {
+      ctx.session.lastMessage = await ctx.reply(
+        chooseDepartment[ctx.session.lang] as string,
+        {
+          reply_markup: productmenu[ctx.session.lang],
+        },
+      );
+    }
+    const products = await this.productModel.find({
+      name: { $regex: ctx.session.admin.searchingProductName, $options: 'i' },
+    });
+    const BUTTONS_PER_ROW = 5;
+
+    let text: string = existsProducts[ctx.session.lang] as string;
+    products.forEach((p, i) => {
+      text += `<b>${i + 1}.</b> ${p.name}\n`;
+    });
+
+    const buttons: any[] = [];
+    for (let i = 0; i < products.length; i += BUTTONS_PER_ROW) {
+      const row = products
+        .slice(i, i + BUTTONS_PER_ROW)
+        .map((p, idx) =>
+          Markup.button.callback(`${i + idx + 1}`, `searchedProduct=${p._id}`),
+        );
+      buttons.push(row);
+    }
+
+    buttons.push([
+      Markup.button.callback('⬅️ Orqaga', 'backFromSearchProduct'),
+    ]);
+
+    ctx.session.lastMessage = await ctx.sendMessage(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard(buttons as []),
+    });
   }
 }

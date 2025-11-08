@@ -13,6 +13,7 @@ export type MyContext = Context &
         newProductId: string;
         selectedProductId: string;
         productPage: number;
+        searchingProductName: string;
       };
     };
   };

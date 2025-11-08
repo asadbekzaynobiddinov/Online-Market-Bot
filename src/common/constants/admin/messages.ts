@@ -97,3 +97,8 @@ export const productName = {
   uz: '🛍️ Mahsulot nomi: ',
   kr: '🛍️ Маҳсулот номи: ',
 };
+
+export const backButton = {
+  uz: '⬅️ Orqaga',
+  kr: '⬅️ Орқага',
+};

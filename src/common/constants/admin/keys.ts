@@ -60,14 +60,14 @@ export const categoryMenu: Record<string, InlineKeyboardMarkup> = {
 export const productmenu: Record<string, InlineKeyboardMarkup> = {
   uz: {
     inline_keyboard: [
-      [Markup.button.callback('📊 Statistika', 'productStats')],
+      // [Markup.button.callback('📊 Statistika', 'productStats')],
       [Markup.button.callback('🔍 Qidirish', 'searchProduct')],
       [Markup.button.callback("📋 Mahsulotlar ro'yxati", 'listOfProducts')],
     ],
   },
   kr: {
     inline_keyboard: [
-      [Markup.button.callback('📊 Статистика', 'productStats')],
+      // [Markup.button.callback('📊 Статистика', 'productStats')],
       [Markup.button.callback('🔍 Қидириш', 'searchProduct')],
       [Markup.button.callback('📋 Маҳсулотлар рўйхати', 'listOfProducts')],
     ],
