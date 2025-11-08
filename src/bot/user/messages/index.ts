@@ -30,6 +30,7 @@ import {
   productName,
   editProductMenu,
   existsProducts,
+  chooseLanguageAdmin,
 } from 'src/common/constants';
 import { Markup } from 'telegraf';
 import { Category } from 'src/common/database/schemas/category.schema';
@@ -109,6 +110,17 @@ export class UserMessages {
           },
         );
         break;
+      case "🌐 Tilni o'zgartirish":
+      case '🌐 Тилни ўзгартириш': {
+        if (user.role == 'admin') {
+          ctx.session.lastMessage = await ctx.reply(
+            chooseDepartment[ctx.session.lang || 'uz'] as string,
+            {
+              reply_markup: chooseLanguageAdmin,
+            },
+          );
+        }
+      }
     }
 
     switch (ctx.session.admin.lastState) {

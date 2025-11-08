@@ -10,7 +10,7 @@ export const adminMenu: Record<string, ReplyKeyboardMarkup> = {
       [Markup.button.text('🔗 Referal tizimi')],
       [Markup.button.text("📂 Kategoriyalar Bo'limi")],
       [Markup.button.text("🛒 Mahsulotlar Bo'limi")],
-      [Markup.button.text('⚙️ Sozlamalar')],
+      [Markup.button.text("🌐 Tilni o'zgartirish")],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -20,7 +20,7 @@ export const adminMenu: Record<string, ReplyKeyboardMarkup> = {
       [Markup.button.text('🔗 Реферал тизими')],
       [Markup.button.text('📂 Категориялар бўлими')],
       [Markup.button.text('🛒 Маҳсулотлар бўлими')],
-      [Markup.button.text('⚙️ Созламалар')],
+      [Markup.button.text('🌐 Тилни ўзгартириш')],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -165,4 +165,11 @@ export const editProductMenu: Record<string, InlineKeyboardMarkup> = {
       [Markup.button.callback('⬅️ Orqaga', 'backFromEditProductMenu')],
     ],
   },
+};
+
+export const chooseLanguageAdmin: InlineKeyboardMarkup = {
+  inline_keyboard: [
+    [Markup.button.callback("🇺🇿 O'zbekcha", 'setAdminLangUz')],
+    [Markup.button.callback('🇺🇿 Ўзбекча', 'setAdminLangUzKrill')],
+  ],
 };

@@ -8,6 +8,7 @@ import { MyContext } from 'src/common/types';
 import { config } from 'src/config';
 import { Referal } from 'src/common/database/schemas/referal.schema';
 import {
+  adminMenu,
   askcategoryName,
   askProductDeskription,
   askProductName,
@@ -40,6 +41,7 @@ import { LanguageGuard } from 'src/common/guards/language.guard';
 import { Category } from 'src/common/database/schemas/category.schema';
 import { Markup } from 'telegraf';
 import { Product } from 'src/common/database/schemas/products.schema';
+import { User } from 'src/common/database/schemas/user.schema';
 
 @UseGuards(AdminGuard)
 @UseGuards(LanguageGuard)
@@ -50,6 +52,7 @@ export class AdminActions {
     @InjectModel(Referal.name) private referalModel: Model<Referal>,
     @InjectModel(Category.name) private categoryModel: Model<Category>,
     @InjectModel(Product.name) private productModel: Model<Product>,
+    @InjectModel(User.name) private userModel: Model<User>,
   ) {}
   @Action('addReferal')
   async addReferal(@Ctx() ctx: MyContext) {
@@ -708,6 +711,32 @@ export class AdminActions {
     ctx.session.lastMessage = await ctx.sendMessage(text, {
       parse_mode: 'HTML',
       ...Markup.inlineKeyboard(buttons as []),
+    });
+  }
+
+  @Action('setAdminLangUz')
+  async setAdminLangUz(@Ctx() ctx: MyContext) {
+    ctx.session.lang = 'uz';
+    await this.userModel.findOneAndUpdate(
+      { telegramId: ctx.from?.id },
+      { lang: 'uz' },
+    );
+    await ctx.deleteMessage();
+    await ctx.reply(chooseDepartment.uz, {
+      reply_markup: adminMenu.uz,
+    });
+  }
+
+  @Action('setAdminLangUzKrill')
+  async setAdminLangUzKrill(@Ctx() ctx: MyContext) {
+    ctx.session.lang = 'kr';
+    await this.userModel.findOneAndUpdate(
+      { telegramId: ctx.from?.id },
+      { lang: 'kr' },
+    );
+    await ctx.deleteMessage();
+    await ctx.reply(chooseDepartment.kr, {
+      reply_markup: adminMenu.kr,
     });
   }
 }
