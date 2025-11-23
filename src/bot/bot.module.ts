@@ -20,6 +20,9 @@ import { config } from 'src/config';
             if (!ctx.session.admin) {
               ctx.session.admin = {};
             }
+            if (!ctx.session.user) {
+              ctx.session.user = {};
+            }
           }
           await next();
         },

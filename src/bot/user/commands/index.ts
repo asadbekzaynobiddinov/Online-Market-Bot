@@ -10,6 +10,7 @@ import { Markup } from 'telegraf';
 import { Inject } from '@nestjs/common';
 import { Referal } from 'src/common/database/schemas/referal.schema';
 import { config } from 'src/config';
+import { userMenu } from 'src/common/constants/user/keys';
 
 @Update()
 export class UserCommands {
@@ -50,7 +51,7 @@ export class UserCommands {
       });
       return;
     }
-    if (!isReferred) return;
+    // if (!isReferred) return;
     await this.userModel.findOneAndUpdate(
       { telegramId: ctx.from?.id },
       { role: isReferred ? 'admin' : 'user' },
@@ -70,5 +71,8 @@ export class UserCommands {
         });
       }
     }
+    await ctx.reply(chooseDepartment[user?.lang || 'uz'] as string, {
+      reply_markup: userMenu[user?.lang || 'uz'],
+    });
   }
 }

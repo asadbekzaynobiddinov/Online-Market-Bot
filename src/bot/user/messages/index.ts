@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, UseGuards } from '@nestjs/common';
@@ -31,12 +32,14 @@ import {
   editProductMenu,
   existsProducts,
   chooseLanguageAdmin,
+  noProducts,
 } from 'src/common/constants';
 import { Markup } from 'telegraf';
 import { Category } from 'src/common/database/schemas/category.schema';
 import { Product } from 'src/common/database/schemas/products.schema';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 import { LanguageGuard } from 'src/common/guards/language.guard';
+import { chooseLanguageUser, userMenu } from 'src/common/constants/user/keys';
 
 @Update()
 export class UserMessages {
@@ -119,7 +122,50 @@ export class UserMessages {
               reply_markup: chooseLanguageAdmin,
             },
           );
+          return;
         }
+        await ctx.reply(chooseDepartment[ctx.session.lang] as string, {
+          reply_markup: chooseLanguageUser,
+        });
+        return;
+      }
+      case '🛍️ Mahsulotlar':
+      case '🛍️ Маҳсулотлар': {
+        const categories = await this.cateoryModel.find().skip(0).limit(10);
+        if (categories.length == 0) {
+          await ctx.reply(noProducts[ctx.session.lang || 'uz'] as string);
+          return;
+        }
+        ctx.session.user.page = 0;
+        let text = chooseDepartment[ctx.session.lang] + '\n\n';
+        categories.forEach((item, i) => (text += `${i + 1}. ${item.name}\n`));
+        const buttons: any[] = [];
+        for (let i = 0; i < categories.length; i += 5) {
+          const row = categories
+            .slice(i, i + 5)
+            .map((c, idx) =>
+              Markup.button.callback(
+                `${0 + i + idx + 1}`,
+                `categoryForUser=${c._id}`,
+              ),
+            );
+          buttons.push(row);
+        }
+        if (categories.length == 10) {
+          buttons.push([
+            Markup.button.callback('▶️', `nextPageOfCategoryForUser`),
+          ]);
+        }
+        if (ctx.session.user.page > 0) {
+          buttons.push([
+            Markup.button.callback('◀️', `previousPageOfCategoryForUser`),
+          ]);
+        }
+        await ctx.reply(text, {
+          reply_markup: {
+            inline_keyboard: [...buttons],
+          },
+        });
       }
     }
 
@@ -399,10 +445,15 @@ export class UserMessages {
         user.lastState = 'active';
         await this.userModel.create(user);
         await this.cache.set(`user-${ctx.from?.id}`, user);
-        await ctx.reply(
-          "Siz muvaffaqiyatli ro'yxatdan o'tdingiz!",
-          Markup.removeKeyboard(),
-        );
+        if (user.role == 'admin') {
+          await ctx.reply(chooseDepartment[user.lang] as string, {
+            reply_markup: adminMenu[user.lang],
+          });
+          return;
+        }
+        await ctx.reply(chooseDepartment[user.lang] as string, {
+          reply_markup: userMenu[user.lang],
+        });
         return;
       }
       default:
@@ -422,10 +473,15 @@ export class UserMessages {
     user.lastState = 'active';
     await this.userModel.create(user);
     await this.cache.set(`user-${ctx.from?.id}`, user);
-    await ctx.reply(
-      "Siz muvaffaqiyatli ro'yxatdan o'tdingiz!",
-      Markup.removeKeyboard(),
-    );
+    if (user.role == 'admin') {
+      await ctx.reply(chooseDepartment[user.lang] as string, {
+        reply_markup: adminMenu[user.lang],
+      });
+      return;
+    }
+    await ctx.reply(chooseDepartment[user.lang] as string, {
+      reply_markup: userMenu[user.lang],
+    });
   }
 
   @UseGuards(AdminGuard)

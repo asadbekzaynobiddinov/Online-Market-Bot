@@ -15,5 +15,9 @@ export type MyContext = Context &
         productPage: number;
         searchingProductName: string;
       };
+      user: {
+        page: number;
+        lastState: string;
+      };
     };
   };
