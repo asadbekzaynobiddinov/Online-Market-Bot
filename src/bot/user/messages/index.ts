@@ -115,7 +115,7 @@ export class UserMessages {
             reply_markup: productmenu[user.lang],
           },
         );
-        break;
+        return;
       case "🌐 Tilni o'zgartirish":
       case '🌐 Тилни ўзгартириш': {
         if (user.role == 'admin') {
@@ -515,7 +515,7 @@ export class UserMessages {
           parse_mode: 'HTML',
           reply_markup: productMenuForUser[user.lang],
         });
-        break;
+        return;
       }
     }
 
@@ -556,7 +556,7 @@ export class UserMessages {
         return;
       }
       default:
-        break;
+        return;
     }
   }
 
@@ -602,7 +602,7 @@ export class UserMessages {
         product.lastState = 'awaitUnit';
         await product.save();
         await ctx.reply(askProductUnit[ctx.session.lang] as string);
-        break;
+        return;
       }
       case 'editingProducPicture': {
         const product = await this.productModel.findById(
@@ -623,10 +623,10 @@ export class UserMessages {
             `📦 ${product.quantity} ${product.unit}`,
           reply_markup: editProductMenu[ctx.session.lang],
         });
-        break;
+        return;
       }
       default:
-        break;
+        return;
     }
   }
 
