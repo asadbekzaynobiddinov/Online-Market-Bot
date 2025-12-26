@@ -4,7 +4,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Update, Ctx, Start } from 'nestjs-telegraf';
 import { Model } from 'mongoose';
 import { MyContext } from 'src/common/types';
-import { adminMenu, chooseDepartment, fullyRegister, helloUser } from 'src/common/constants';
+import {
+  adminMenu,
+  chooseDepartment,
+  fullyRegister,
+  helloUser,
+} from 'src/common/constants';
 import { User } from 'src/common/database/schemas/user.schema';
 import { Markup } from 'telegraf';
 import { Inject } from '@nestjs/common';
@@ -63,7 +68,7 @@ export class UserCommands {
     if (!user.fullfilled) {
       await ctx.reply(fullyRegister[user.lang || 'uz'] as string);
       return;
-    };
+    }
 
     const lang = user.lang || 'uz';
     if (user.role === 'admin') {
