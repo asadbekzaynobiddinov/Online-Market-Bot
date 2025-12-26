@@ -23,6 +23,9 @@ export class User extends Document {
 
   @Prop({ required: true, default: 'user', enum: ['user', 'admin'] })
   role: string;
+
+  @Prop({ required: true, default: false, type: 'boolean' })
+  fullfilled: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -29,8 +29,12 @@ export class Cart extends Document {
   @Prop({ type: [CartProduct], default: [] })
   products: CartProduct[];
 
-  @Prop({ required: true, default: 0 })
-  totalPrice: number;
+  @Prop({
+    type: String,
+    enum: ['notsended', 'sended', 'accepted'],
+    default: 'notsended',
+  })
+  status: string;
 }
 
 export const CartSchema = SchemaFactory.createForClass(Cart);

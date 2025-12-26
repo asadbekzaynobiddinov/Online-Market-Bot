@@ -18,6 +18,9 @@ export type MyContext = Context &
       user: {
         page: number;
         lastState: string;
+        selectedCategory: string;
+        selectedProduct: string;
+        productQuantity: number;
       };
     };
   };

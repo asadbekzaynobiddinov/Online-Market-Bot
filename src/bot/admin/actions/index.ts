@@ -30,6 +30,8 @@ import {
   noCategories,
   noProducts,
   noReferals,
+  orderAccepted,
+  orderRejected,
   productInline,
   productmenu,
   productName,
@@ -42,6 +44,7 @@ import { Category } from 'src/common/database/schemas/category.schema';
 import { Markup } from 'telegraf';
 import { Product } from 'src/common/database/schemas/products.schema';
 import { User } from 'src/common/database/schemas/user.schema';
+import { Cart } from 'src/common/database/schemas/cart.schema';
 
 @UseGuards(AdminGuard)
 @UseGuards(LanguageGuard)
@@ -53,6 +56,7 @@ export class AdminActions {
     @InjectModel(Category.name) private categoryModel: Model<Category>,
     @InjectModel(Product.name) private productModel: Model<Product>,
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(Cart.name) private cartModel: Model<Cart>,
   ) {}
   @Action('addReferal')
   async addReferal(@Ctx() ctx: MyContext) {
@@ -738,5 +742,64 @@ export class AdminActions {
     await ctx.reply(chooseDepartment.kr, {
       reply_markup: adminMenu.kr,
     });
+  }
+
+  @Action(/acceptOrder/)
+  async acceptOrder(@Ctx() ctx: MyContext) {
+    const id = (
+      ctx.update as { callback_query: { data: string } }
+    ).callback_query.data.split('=')[1];
+    const cart = await this.cartModel.findById(id);
+
+    if (!cart || !cart.products.length) return;
+
+    for (const p of cart.products) {
+      await this.productModel.findOneAndUpdate(
+        { _id: p.productId },
+        {
+          $inc: { quantity: -p.quantity },
+        },
+      );
+    }
+
+    cart.status = 'accepted';
+    cart.products = [];
+
+    await cart.save();
+
+    const userOrder = await this.userModel.findOne({ _id: cart.userId });
+
+    if (userOrder) {
+      await ctx.telegram.sendMessage(
+        userOrder.telegramId,
+        orderAccepted[userOrder.lang] as string,
+      );
+    }
+
+    await ctx.editMessageReplyMarkup(undefined);
+  }
+
+  @Action(/rejectOrder/)
+  async rejectOrder(@Ctx() ctx: MyContext) {
+    const id = (
+      ctx.update as { callback_query: { data: string } }
+    ).callback_query.data.split('=')[1];
+    const cart = await this.cartModel.findById(id);
+
+    if (!cart || !cart.products.length) return;
+
+    cart.status = 'notsended';
+    await cart.save();
+
+    const userOrder = await this.userModel.findOne({ _id: cart.userId });
+
+    if (userOrder) {
+      await ctx.telegram.sendMessage(
+        userOrder.telegramId,
+        orderRejected[userOrder.lang] as string,
+      );
+    }
+
+    await ctx.editMessageReplyMarkup(undefined);
   }
 }

@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, UseGuards } from '@nestjs/common';
-import { Cache } from '@nestjs/cache-manager';
+import { UseGuards } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Update, On, Ctx } from 'nestjs-telegraf';
 import { Model } from 'mongoose';
@@ -33,37 +31,42 @@ import {
   existsProducts,
   chooseLanguageAdmin,
   noProducts,
+  addedToCart,
+  noCart,
+  orderSended,
 } from 'src/common/constants';
 import { Markup } from 'telegraf';
 import { Category } from 'src/common/database/schemas/category.schema';
 import { Product } from 'src/common/database/schemas/products.schema';
 import { AdminGuard } from 'src/common/guards/admin.guard';
 import { LanguageGuard } from 'src/common/guards/language.guard';
-import { chooseLanguageUser, userMenu } from 'src/common/constants/user/keys';
+import {
+  buyButton,
+  chooseLanguageUser,
+  productMenuForUser,
+  userMenu,
+} from 'src/common/constants/user/keys';
+import { Cart } from 'src/common/database/schemas/cart.schema';
+import { Location } from 'telegraf/typings/core/types/typegram';
 
 @Update()
 export class UserMessages {
   constructor(
-    @Inject(CACHE_MANAGER) private cache: Cache,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Category.name) private cateoryModel: Model<Category>,
     @InjectModel(Product.name) private productModel: Model<Product>,
+    @InjectModel(Cart.name) private cartModel: Model<Cart>,
   ) {}
   @On('text')
   async handleText(@Ctx() ctx: MyContext) {
-    let user: User | undefined | null = await this.cache.get(
-      `user-${ctx.from?.id}`,
-    );
-    if (user == undefined) {
-      user = await this.userModel.findOne({ telegramId: ctx.from?.id });
-      if (user == null) {
-        await ctx.reply(
-          "Iltimos, botdan foydalanishni boshlash uchun /start buyrug'ini bering.",
-        );
-        return;
-      }
-      await this.cache.set(`user-${ctx.from?.id}`, user);
+    const user = await this.userModel.findOne({ telegramId: ctx.from?.id });
+    if (user == null) {
+      await ctx.reply(
+        "Iltimos, botdan foydalanishni boshlash uchun /start buyrug'ini bering.",
+      );
+      return;
     }
+
     const text = (ctx.update as { message: { text: string } }).message.text;
 
     switch (text) {
@@ -137,7 +140,7 @@ export class UserMessages {
           return;
         }
         ctx.session.user.page = 0;
-        let text = chooseDepartment[ctx.session.lang] + '\n\n';
+        let text = chooseDepartment[user.lang] + '\n\n';
         categories.forEach((item, i) => (text += `${i + 1}. ${item.name}\n`));
         const buttons: any[] = [];
         for (let i = 0; i < categories.length; i += 5) {
@@ -161,11 +164,56 @@ export class UserMessages {
             Markup.button.callback('◀️', `previousPageOfCategoryForUser`),
           ]);
         }
-        await ctx.reply(text, {
+        ctx.session.lastMessage = await ctx.reply(text, {
           reply_markup: {
             inline_keyboard: [...buttons],
           },
         });
+        return;
+      }
+      case '🛒 Savat':
+      case '🛒 Сават': {
+        const cart = await this.cartModel.findOne({ userId: user._id });
+        if (!cart || !cart.products.length) {
+          await ctx.reply(noCart[user.lang] as string);
+          return;
+        }
+
+        const allPrice = cart.products.reduce(
+          (sum, p) => sum + +p.price * +p.quantity,
+          0,
+        );
+
+        const cartText: string = cart.products
+          .map(
+            (p, i) =>
+              `${i + 1}. <b>${p.name}</b>\n` +
+              `📦 ${p.quantity} ${p.unit}\n` +
+              `💸 ${p.price}\n` +
+              `🤑 ${+p.price * +p.quantity}\n`,
+          )
+          .join('\n');
+
+        if (cart.status === 'sended') {
+          await ctx.reply(
+            cartText +
+              `\nJami summa: ${allPrice} so'm\n` +
+              'Buyurtma tayyorlanmoqda...',
+            {
+              parse_mode: 'HTML',
+            },
+          );
+          return;
+        }
+        ctx.session.lastMessage = await ctx.reply(
+          cartText + `\nJami summa: ${allPrice} so'm`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: buyButton[user.lang],
+          },
+        );
+
+        return;
       }
     }
 
@@ -182,7 +230,7 @@ export class UserMessages {
             reply_markup: categoryMenu[user.lang],
           },
         );
-        break;
+        return;
       }
       case 'awaitNewCategoryName': {
         const newCategoryName = (ctx.update as { message: { text: string } })
@@ -201,7 +249,7 @@ export class UserMessages {
             reply_markup: editCategoryMenu[user.lang],
           },
         );
-        break;
+        return;
       }
       case 'addingProduct': {
         const product = await this.productModel.findById(
@@ -273,7 +321,7 @@ export class UserMessages {
             );
           }
         }
-        break;
+        return;
       }
       case 'editingProductName': {
         const product = await this.productModel.findById(
@@ -292,7 +340,7 @@ export class UserMessages {
             `📦 ${product.quantity} ${product.unit}`,
           reply_markup: editProductMenu[user.lang],
         });
-        break;
+        return;
       }
       case 'editingProductPrice': {
         const product = await this.productModel.findById(
@@ -318,7 +366,7 @@ export class UserMessages {
             `📦 ${product.quantity} ${product.unit}`,
           reply_markup: editProductMenu[user.lang],
         });
-        break;
+        return;
       }
       case 'editingProductDescription': {
         const product = await this.productModel.findById(
@@ -337,7 +385,7 @@ export class UserMessages {
             `📦 ${product.quantity} ${product.unit}`,
           reply_markup: editProductMenu[user.lang],
         });
-        break;
+        return;
       }
       case 'editingProductUnit': {
         const product = await this.productModel.findById(
@@ -356,7 +404,7 @@ export class UserMessages {
             `📦 ${product.quantity} ${product.unit}`,
           reply_markup: editProductMenu[user.lang],
         });
-        break;
+        return;
       }
       case 'editingProductQuantity': {
         const product = await this.productModel.findById(
@@ -380,7 +428,7 @@ export class UserMessages {
             `📦 ${product.quantity} ${product.unit}`,
           reply_markup: editProductMenu[user.lang],
         });
-        break;
+        return;
       }
       case 'searchingProduct': {
         const name = (ctx.update as { message: { text: string } }).message.text;
@@ -416,6 +464,58 @@ export class UserMessages {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard(buttons as []),
         });
+        return;
+      }
+    }
+
+    switch (ctx.session.user.lastState) {
+      case 'addingProductToCart': {
+        const quantity = text;
+        if (!quantity.match(/^[0-9]+$/)) {
+          await ctx.reply(uncorrectQuantity[user.lang] as string);
+          return;
+        }
+        const product = await this.productModel.findById(
+          ctx.session.user.selectedProduct,
+        );
+        ctx.session.user.productQuantity = +quantity;
+        if (!product) return;
+        const cart = await this.cartModel.findOne({ userId: user._id });
+        if (!cart) {
+          const newCart = new this.cartModel({
+            userId: user._id,
+            products: [
+              {
+                productId: product._id,
+                name: product.name,
+                price: product.price,
+                quantity: +quantity,
+                unit: product.unit,
+              },
+            ],
+          });
+          await newCart.save();
+        } else {
+          cart.products.push({
+            productId: product._id as string,
+            name: product.name,
+            price: product.price,
+            quantity: +quantity,
+            unit: product.unit,
+          });
+          await cart.save();
+        }
+        ctx.session.user.lastState = '';
+        await ctx.reply(addedToCart[user.lang]);
+        ctx.session.lastMessage = await ctx.sendPhoto(product.imageUrl, {
+          caption:
+            `<b>${product.name}\n\n</b>` +
+            `ℹ️: ${product.description}\n` +
+            `💸<b>(1 ${product.unit})</b>: ${product.price}\n`,
+          parse_mode: 'HTML',
+          reply_markup: productMenuForUser[user.lang],
+        });
+        break;
       }
     }
 
@@ -423,7 +523,7 @@ export class UserMessages {
       case 'awaitName':
         user.name = text;
         user.lastState = 'awaitNumber';
-        await this.cache.set(`user-${ctx.from?.id}`, user);
+        await user.save();
         await ctx.reply(askPhoneNumber[user.lang] as string, {
           reply_markup: {
             keyboard: [
@@ -443,8 +543,7 @@ export class UserMessages {
         }
         user.phoneNumber = text;
         user.lastState = 'active';
-        await this.userModel.create(user);
-        await this.cache.set(`user-${ctx.from?.id}`, user);
+        await user.save();
         if (user.role == 'admin') {
           await ctx.reply(chooseDepartment[user.lang] as string, {
             reply_markup: adminMenu[user.lang],
@@ -463,16 +562,16 @@ export class UserMessages {
 
   @On('contact')
   async handleContact(@Ctx() ctx: MyContext) {
-    const user: User | undefined = await this.cache.get(`user-${ctx.from?.id}`);
-    if (user == undefined) return;
+    const user = await this.userModel.findOne({ telegramId: ctx.from?.id });
+    if (!user) return;
     const contact = (
       ctx.update as { message: { contact: { phone_number: string } } }
     ).message.contact;
     if (user.lastState !== 'awaitNumber') return;
     user.phoneNumber = contact.phone_number;
     user.lastState = 'active';
-    await this.userModel.create(user);
-    await this.cache.set(`user-${ctx.from?.id}`, user);
+    user.fullfilled = true;
+    await user.save();
     if (user.role == 'admin') {
       await ctx.reply(chooseDepartment[user.lang] as string, {
         reply_markup: adminMenu[user.lang],
@@ -529,5 +628,64 @@ export class UserMessages {
       default:
         break;
     }
+  }
+
+  @UseGuards(LanguageGuard)
+  @On('location')
+  async onLocation(@Ctx() ctx: MyContext) {
+    const user = await this.userModel.findOne({ telegramId: ctx.from?.id });
+    if (!user) return;
+    const cart = await this.cartModel.findOne({ userId: user._id });
+    if (!cart || !cart.products.length) return;
+
+    const allPrice = cart.products.reduce(
+      (sum, p) => sum + +p.price * +p.quantity,
+      0,
+    );
+
+    const cartText: string = cart.products
+      .map(
+        (p, i) =>
+          `${i + 1}. <b>${p.name}</b>\n` +
+          `📦 ${p.quantity} ${p.unit}\n` +
+          `💸 ${p.price}\n` +
+          `🤑 ${+p.price * +p.quantity}\n`,
+      )
+      .join('\n');
+    const location = (ctx.update as { message: { location: Location } }).message
+      .location;
+
+    const userInfo =
+      `<b>Ism:</b> ${user.name}\n` +
+      `<b>Telefon raqam: </b>${user.phoneNumber}\n\n`;
+
+    await ctx.telegram.sendMessage(
+      '@home_admin',
+      userInfo + cartText + `\nJami summa: ${allPrice} so'm`,
+      {
+        parse_mode: 'HTML',
+      },
+    );
+
+    await ctx.telegram.sendLocation(
+      '@home_admin',
+      location.latitude,
+      location.longitude,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [Markup.button.callback('Tasdiqlash', `acceptOrder=${cart._id}`)],
+            [Markup.button.callback('Bekor qilish', `rejectOrder=${cart._id}`)],
+          ],
+        },
+      },
+    );
+
+    cart.status = 'sended';
+    await cart.save();
+
+    await ctx.reply(orderSended[ctx.session.lang] as string, {
+      reply_markup: userMenu[ctx.session.lang],
+    });
   }
 }
